@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>STEP - EPS App</title>
+    <!-- Lien vers le Manifest PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Librairie Scanner QR Prof -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+    <!-- Librairie html2pdf pour l'export PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        .rounded-xl-custom { border-radius: 2rem; }
+        .rounded-btn { border-radius: 9999px; }
+        body { background: linear-gradient(135deg, #f8fafc 0%, #ede9fe 50%, #fce7f3 100%); min-height: 100vh; }
+        .step-gradient { background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%); }
+    </style>
+</head>
+<body class="text-gray-800 font-sans p-4 flex flex-col justify-between min-h-screen">
+
+    <!-- VIDÉO INVISIBLE POUR EMPÊCHER LA MISE EN VEILLE SUR MOBILE -->
+    <video id="keep-awake-video" muted loop playsinline style="display:none; width:1px; height:1px;">
+        <source src="data:video/mp4;base64,AAAAHGZ0eXBpc29tAAACAGlzb21pc29tYXZjMQAAAAhmcmVlAAAAM21kYXQAAABjYXZjFAADF/+h3qVn////2gBhgAAAAA==" type="video/mp4">
+    </video>
+
+    <!-- HEADER -->
+    <header class="flex justify-between items-center mb-4 bg-white/90 backdrop-blur p-4 rounded-xl-custom shadow-md border border-purple-100">
+        <div class="flex items-center space-x-2">
+            <div class="w-10 h-10 rounded-xl-custom step-gradient flex items-center justify-center text-white shadow-md text-xl animate-bounce">
+                👟
+            </div>
+            <div>
+                <h1 class="text-2xl font-black tracking-wider text-transparent bg-clip-text step-gradient">STEP</h1>
+                <p class="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Dynamic EPS</p>
+            </div>
+        </div>
+        <button onclick="basculerModeEnseignant()" id="btn-mode" class="text-xs bg-purple-100 text-purple-700 font-bold px-4 py-2 rounded-btn shadow-sm hover:bg-purple-200 transition">
+            👨‍🏫 Mode Prof
+        </button>
+    </header>
+
+    <!-- CONTENEUR PRINCIPAL -->
+    <main id="app-container" class="w-full max-w-md mx-auto flex-1 flex flex-col justify-center">
+
+        <!-- ÉTAPE 1 : CONFIGURATION ÉLÈVE -->
+        <div id="step-config" class="bg-white p-6 rounded-xl-custom shadow-2xl space-y-4 border-2 border-purple-100">
+            <div class="text-center space-y-1">
+                <span class="text-3xl">🔥</span>
+                <h2 class="text-2xl font-black text-purple-600">Prépare ta séance !</h2>
+                <p class="text-xs text-gray-400">Format temps : <code class="bg-purple-50 text-purple-600 px-1 py-0.5 rounded">0'45</code> ou <code class="bg-purple-50 text-purple-600 px-1 py-0.5 rounded">1'30</code></p>
+            </div>
+            
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-purple-500 mb-1">Ton Prénom :</label>
+                <input type="text" id="eleve-prenom" placeholder="ex: Thomas" class="w-full px-4 py-3 bg-purple-50/50 border-2 border-purple-100 rounded-btn text-lg focus:outline-none focus:border-purple-500 font-bold">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-purple-500 mb-1">Choisis ton Mobile :</label>
+                <div class="grid grid-cols-3 gap-2">
+                    <button type="button" onclick="setMobile('motricite')" class="mobile-btn p-3 text-xs font-extrabold rounded-xl-custom border-2 border-blue-200 bg-blue-50 text-blue-700 transition flex flex-col items-center gap-1" data-mobile="motricite">
+                        <span class="text-lg">🔵</span> Motricité
+                    </button>
+                    <button type="button" onclick="setMobile('intensite')" class="mobile-btn p-3 text-xs font-extrabold rounded-xl-custom border-2 border-red-200 bg-red-50 text-red-700 transition flex flex-col items-center gap-1" data-mobile="intensite">
+                        <span class="text-lg">🔴</span> Intensité
+                    </button>
+                    <button type="button" onclick="setMobile('duree')" class="mobile-btn p-3 text-xs font-extrabold rounded-xl-custom border-2 border-green-200 bg-green-50 text-green-700 transition flex flex-col items-center gap-1" data-mobile="duree">
+                        <span class="text-lg">🟢</span> Durée
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-xl-custom border border-gray-100">
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 mb-1">FC Cible Min (bpm)</label>
+                    <input type="number" id="fc-min" value="130" class="w-full px-3 py-2 bg-white border border-gray-200 rounded-btn text-center font-bold text-purple-600">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 mb-1">FC Cible Max (bpm)</label>
+                    <input type="number" id="fc-max" value="160" class="w-full px-3 py-2 bg-white border border-gray-200 rounded-btn text-center font-bold text-purple-600">
+                </div>
+            </div>
+
+            <div id="param-filiere" class="space-y-3 bg-purple-50/60 p-4 rounded-xl-custom border border-purple-100">
+                <!-- Injecté par JS -->
+            </div>
+
+            <button onclick="validerConfig()" class="w-full py-4 step-gradient text-white font-black text-lg rounded-btn shadow-xl transform active:scale-95 transition flex items-center justify-center gap-2">
+                <span>🚀 C'est parti !</span>
+            </button>
+        </div>
+
+        <!-- ÉTAPE 2 : DÉCOMPTE & CHRONO SÉRIE -->
+        <div id="step-chrono" class="hidden bg-white p-6 rounded-xl-custom shadow-2xl text-center space-y-6 border-2 border-purple-100">
+            <div id="info-serie" class="text-xs font-black text-purple-600 uppercase tracking-widest bg-purple-50 py-1 px-3 rounded-btn inline-block">Série 1 / 3</div>
+            <div id="affichage-statut" class="text-2xl font-black text-gray-700">Prépare-toi !</div>
+            
+            <div id="cercle-decompte" class="w-48 h-48 mx-auto bg-amber-400 text-white rounded-full flex items-center justify-center text-5xl font-black shadow-inner animate-pulse">
+                0'05
+            </div>
+
+            <div id="info-details-chrono" class="text-xs font-bold text-indigo-500"></div>
+        </div>
+
+        <!-- ÉTAPE 3 : RÉCUPÉRATION TOTALE / FREQUENCE CARDIAQUE (Séries intermédiaires uniquement) -->
+        <div id="step-recup-totale" class="hidden bg-white p-6 rounded-xl-custom shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto border-2 border-purple-100">
+            <div class="bg-emerald-100 text-emerald-800 font-black text-sm p-3 rounded-xl-custom shadow-sm border border-emerald-200 text-center">
+                🧘‍♂️ Récupération & Fréquence cardiaque : <span id="chrono-recup-global" class="text-xl">0'00</span>
+            </div>
+
+            <!-- SOUS-ÉTAPE FRÉQUENCE CARDIAQUE (10s de décompte) -->
+            <div id="bloc-prise-pouls" class="bg-purple-50 p-4 rounded-xl-custom border border-purple-200 space-y-3 text-center">
+                <div id="titre-pouls-statut" class="font-black text-purple-700 text-sm">❤️ Prépare ta fréquence cardiaque</div>
+                <div id="cercle-pouls" class="w-24 h-24 mx-auto bg-purple-600 text-white rounded-full flex items-center justify-center text-2xl font-black shadow-inner">0'10</div>
+            </div>
+
+            <!-- SOUS-ÉTAPE BILAN -->
+            <div id="bloc-saisie-bilan" class="space-y-3 pt-2">
+                <h2 class="text-lg font-black text-center text-purple-600">📝 Bilan de la série</h2>
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1">❤️ Pulsations comptées (sur 15s) :</label>
+                    <input type="number" id="fc-mesuree" placeholder="ex: 38" class="w-full px-4 py-2 bg-purple-50/50 border-2 border-purple-100 rounded-btn text-base text-center font-bold text-purple-700 focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1">🎯 Ton ressenti :</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" onclick="setRessenti('Facile', this)" class="ressenti-btn p-2 rounded-xl-custom border-2 border-green-300 bg-green-50 font-bold text-green-700 text-xs">🟢 Facile</button>
+                        <button type="button" onclick="setRessenti('Moyen', this)" class="ressenti-btn p-2 rounded-xl-custom border-2 border-yellow-300 bg-yellow-50 font-bold text-yellow-700 text-xs">🟡 Moyen</button>
+                        <button type="button" onclick="setRessenti('Dur', this)" class="ressenti-btn p-2 rounded-xl-custom border-2 border-orange-300 bg-orange-50 font-bold text-orange-700 text-xs">🟠 Dur</button>
+                        <button type="button" onclick="setRessenti('Impossible', this)" class="ressenti-btn p-2 rounded-xl-custom border-2 border-red-300 bg-red-50 font-bold text-red-700 text-xs">🔴 Impossible</button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1">💬 Sensations :</label>
+                    <input type="text" id="input-sensations" placeholder="ex: souffle court..." class="w-full px-3 py-1.5 bg-gray-100 border-none rounded-btn text-xs">
+                </div>
+
+                <button onclick="validerBilanRecup()" class="w-full py-2.5 step-gradient text-white font-black rounded-btn shadow-md text-sm">
+                    Valider mon bilan ➔
+                </button>
+            </div>
+
+            <!-- SOUS-ÉTAPE CHOIX DU POUVOIR -->
+            <div id="bloc-choix-pouvoir" class="hidden space-y-3 pt-2 text-center">
+                <span class="text-3xl">⚡</span>
+                <h2 class="text-base font-black text-purple-700">Choisis ton Pouvoir suivant</h2>
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                    <button type="button" onclick="choisirPouvoirRecup('Hauteur du step', this)" class="pouvoir-recup-btn p-3 rounded-xl-custom border-2 border-purple-200 bg-purple-50 font-bold text-purple-900 text-xs flex flex-col items-center gap-1 hover:bg-purple-100 transition"><span class="text-base">📈</span> Hauteur</button>
+                    <button type="button" onclick="choisirPouvoirRecup('Renforcement musculaire', this)" class="pouvoir-recup-btn p-3 rounded-xl-custom border-2 border-purple-200 bg-purple-50 font-bold text-purple-900 text-xs flex flex-col items-center gap-1 hover:bg-purple-100 transition"><span class="text-base">💪</span> Renforcement</button>
+                    <button type="button" onclick="choisirPouvoirRecup('Sauts / Sursauts', this)" class="pouvoir-recup-btn p-3 rounded-xl-custom border-2 border-purple-200 bg-purple-50 font-bold text-purple-900 text-xs flex flex-col items-center gap-1 hover:bg-purple-100 transition"><span class="text-base">🚀</span> Sauts</button>
+                    <button type="button" onclick="choisirPouvoirRecup('Poids / Lest', this)" class="pouvoir-recup-btn p-3 rounded-xl-custom border-2 border-purple-200 bg-purple-50 font-bold text-purple-900 text-xs flex flex-col items-center gap-1 hover:bg-purple-100 transition"><span class="text-base">🏋️‍♂️</span> Poids</button>
+                </div>
+                <div id="msg-attente-chrono" class="text-xs text-purple-500 font-bold pt-2">⏳ En attente de la fin du chrono global...</div>
+            </div>
+        </div>
+
+        <!-- ÉTAPE 3B : BILAN FINAL DIRECT (Dernière série) -->
+        <div id="step-bilan-final-direct" class="hidden bg-white p-6 rounded-xl-custom shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto border-2 border-purple-100">
+            <h2 class="text-xl font-black text-center text-purple-600">📝 Bilan de la dernière série & Séance</h2>
+            
+            <div id="bloc-prise-pouls-final" class="bg-purple-50 p-4 rounded-xl-custom border border-purple-200 space-y-3 text-center">
+                <div id="titre-pouls-statut-final" class="font-black text-purple-700 text-sm">❤️ Prépare ta fréquence cardiaque</div>
+                <div id="cercle-pouls-final" class="w-24 h-24 mx-auto bg-purple-600 text-white rounded-full flex items-center justify-center text-2xl font-black shadow-inner">0'10</div>
+            </div>
+
+            <div id="bloc-saisie-bilan-final" class="space-y-3 pt-2 hidden">
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1">❤️ Pulsations comptées (sur 15s) :</label>
+                    <input type="number" id="fc-mesuree-final" placeholder="ex: 38" class="w-full px-4 py-2 bg-purple-50/50 border-2 border-purple-100 rounded-btn text-base text-center font-bold text-purple-700 focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1">🎯 Ton ressenti :</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" onclick="setRessenti('Facile', this)" class="ressenti-btn-final p-2 rounded-xl-custom border-2 border-green-300 bg-green-50 font-bold text-green-700 text-xs">🟢 Facile</button>
+                        <button type="button" onclick="setRessenti('Moyen', this)" class="ressenti-btn-final p-2 rounded-xl-custom border-2 border-yellow-300 bg-yellow-50 font-bold text-yellow-700 text-xs">🟡 Moyen</button>
+                        <button type="button" onclick="setRessenti('Dur', this)" class="ressenti-btn-final p-2 rounded-xl-custom border-2 border-orange-300 bg-orange-50 font-bold text-orange-700 text-xs">🟠 Dur</button>
+                        <button type="button" onclick="setRessenti('Impossible', this)" class="ressenti-btn-final p-2 rounded-xl-custom border-2 border-red-300 bg-red-50 font-bold text-red-700 text-xs">🔴 Impossible</button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 mb-1">💬 Sensations :</label>
+                    <input type="text" id="input-sensations-final" placeholder="ex: souffle court..." class="w-full px-3 py-1.5 bg-gray-100 border-none rounded-btn text-xs">
+                </div>
+
+                <div class="space-y-2 pt-2 border-t border-purple-100">
+                    <div>
+                        <label class="block text-xs font-bold text-indigo-600 mb-1">⭐ Bilan global :</label>
+                        <textarea id="bilan-general" placeholder="Fatigue globale..." class="w-full p-2 bg-gray-100 border-none rounded-xl-custom text-xs h-16"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-indigo-600 mb-1">🛠️ Modifications :</label>
+                        <textarea id="modifications-seance" placeholder="Que modifierais-tu..." class="w-full p-2 bg-gray-100 border-none rounded-xl-custom text-xs h-16"></textarea>
+                    </div>
+                </div>
+
+                <button onclick="validerBilanFinalDirect()" class="w-full py-2.5 step-gradient text-white font-black rounded-btn shadow-md text-sm">
+                    Terminer la séance ➔
+                </button>
+            </div>
+        </div>
+
+        <!-- ÉTAPE 4 : BILAN FINAL & QR CODE / EXPORT PDF -->
+        <div id="step-final" class="hidden bg-white p-6 rounded-xl-custom shadow-2xl text-center space-y-4 max-h-[85vh] overflow-y-auto border-2 border-pink-100">
+            <span class="text-4xl">🎉</span>
+            <h2 class="text-2xl font-black text-transparent bg-clip-text step-gradient">Séance Terminée !</h2>
+            <p class="text-xs text-gray-600">Voici ton bilan récapitulatif. Télécharge ton PDF ou présente ton QR code au professeur.</p>
+            
+            <div id="pdf-export-content" class="bg-purple-50/70 p-4 rounded-xl-custom text-left space-y-3 border border-purple-200 shadow-sm">
+                <!-- Rempli dynamiquement -->
+            </div>
+
+            <button onclick="telechargerPDF()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-btn shadow-md flex items-center justify-center gap-2 transition">
+                <span>📥 Télécharger mon bilan PDF</span>
+            </button>
+
+            <div class="bg-white p-4 rounded-xl-custom border-2 border-purple-200 shadow-inner flex flex-col items-center justify-center">
+                <p class="text-xs font-bold text-purple-700 mb-2">📲 QR Code Professeur</p>
+                <div id="qrcode" class="flex justify-center items-center my-2"></div>
+            </div>
+
+            <button onclick="recommencer()" class="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-btn transition">
+                🔄 Recommencer une séance
+            </button>
+        </div>
+
+        <!-- INTERFACE ENSEIGNANT (Scanner QR) -->
+        <div id="step-enseignant" class="hidden bg-white p-6 rounded-xl-custom shadow-2xl space-y-4 border-2 border-purple-100">
+            <div class="text-center">
+                <span class="text-2xl">👨‍🏫</span>
+                <h2 class="text-xl font-black text-purple-700">Tableau de bord Prof</h2>
+                <p class="text-xs text-gray-500">Flashez le QR code d'un élève pour récupérer son bilan complet de séance.</p>
+            </div>
+            
+            <div id="reader" class="overflow-hidden rounded-xl-custom border-2 border-purple-200"></div>
+            
+            <div id="resultat-flash" class="bg-purple-50 p-4 rounded-xl-custom text-sm space-y-2 hidden border border-purple-200">
+                <h3 class="font-bold text-purple-800 border-b border-purple-200 pb-1" id="flash-titre"></h3>
+                <div id="flash-contenu" class="text-xs text-gray-700 space-y-1"></div>
+            </div>
+
+            <button onclick="fermerModeEnseignant()" class="w-full py-3 bg-gray-100 text-gray-700 font-bold rounded-btn text-sm hover:bg-gray-200 transition">
+                Retour à l'application
+            </button>
+        </div>
+
+    </main>
+
+    <footer class="text-center text-xs text-purple-400 mt-4 font-bold tracking-wide">
+        STEP — Application PWA EPS
+    </footer>
+
+    <!-- SCRIPT LOGIQUE DE L'APPLICATION -->
+    <script>
+        // Enregistrement du Service Worker pour la PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then((reg) => console.log('Service Worker enregistré avec succès:', reg.scope))
+                    .catch((err) => console.log('Échec de l\'enregistrement du Service Worker:', err));
+            });
+        }
+
+        let mobileActif = 'motricite';
+        let configEleve = {};
+        let serieActuelle = 1;
+        let ressentiActuel = 'Moyen';
+        let pouvoirActuel = 'Aucun';
+        let historiqueSeries = [];
+        let wakeLock = null;
+        let html5QrCodeScanner = null;
+        let timerRecupGlobal = null;
+        let tempsRecupRestant = 0;
+        let chronoRecupEpuise = false;
+        let audioCtx = null;
+
+        function jouerSon(frequence = 440, duree = 200, type = 'sine') {
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.value = frequence;
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + (duree / 1000));
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + (duree / 1000));
+            } catch(e) {
+                console.log("Audio non supporté ou bloqué");
+            }
+        }
+
+        async function activerAntiVeille() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                }
+                const video = document.getElementById('keep-awake-video');
+                video.play().catch(e => console.log("Lecture vidéo bloquée"));
+            } catch (err) {
+                console.log(`Erreur anti-veille: ${err.name}`);
+            }
+        }
+
+        function convertirTempsEnSecondes(val) {
+            if (!val) return 0;
+            const str = String(val).trim();
+            if (str.includes("'") || str.includes(":") || str.includes("h")) {
+                let parties = str.split(/[':h]/);
+                let min = parseInt(parties[0]) || 0;
+                let sec = parseInt(parties[1]) || 0;
+                return (min * 60) + sec;
+            }
+            let nombre = parseInt(str);
+            return isNaN(nombre) ? 0 : nombre;
+        }
+
+        function formatMss(secondes) {
+            if (isNaN(secondes) || secondes < 0) return "0'00";
+            const m = Math.floor(secondes / 60);
+            const s = secondes % 60;
+            return `${m}'${s < 10 ? '0' : ''}${s}`;
+        }
+
+        function setMobile(mobile) {
+            mobileActif = mobile;
+            document.querySelectorAll('.mobile-btn').forEach(btn => {
+                btn.classList.remove('ring-4', 'ring-purple-400', 'shadow-md', 'bg-purple-100');
+                if(btn.dataset.mobile === mobile) {
+                    btn.classList.add('ring-4', 'ring-purple-400', 'shadow-md', 'bg-purple-100');
+                }
+            });
+
+            const container = document.getElementById('param-filiere');
+            if(mobile === 'intensite') {
+                container.innerHTML = `
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="block text-[10px] font-bold text-gray-600">Travail (ex: 0'30)</label><input type="text" id="t-travail" value="0'30" class="w-full p-2 bg-white rounded-btn text-center font-bold text-purple-700 border border-purple-200"></div>
+                        <div><label class="block text-[10px] font-bold text-gray-600">Récup. Active (ex: 0'15)</label><input type="text" id="t-recup-active" value="0'15" class="w-full p-2 bg-white rounded-btn text-center font-bold text-purple-700 border border-purple-200"></div>
+                        <div><label class="block text-[10px] font-bold text-gray-600">Nbr Répétitions</label><input type="number" id="nbr-rep" value="4" class="w-full p-2 bg-white rounded-btn text-center font-bold text-purple-700 border border-purple-200"></div>
+                        <div><label class="block text-[10px] font-bold text-gray-600">Récup. Totale (ex: 1'00)</label><input type="text" id="t-recup-totale" value="1'00" class="w-full p-2 bg-white rounded-btn text-center font-bold text-purple-700 border border-purple-200"></div>
+                        <div class="col-span-2"><label class="block text-[10px] font-bold text-gray-600">Nbr Séries</label><input type="number" id="nbr-series" value="3" class="w-full p-2 bg-white rounded-btn text-center font-bold text-purple-700 border border-purple-200"></div>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="block text-[10px] font-bold text-gray-600">Travail (ex: 0'45)</label><input type="text" id="t-travail" value="0'45" class="w-full p-2 bg-white rounded-btn text-center font-bold text-purple-700 border border-purple-200"></div>
+                        <div><label class="block text-[10px] font-bold text-gray-600">Nbr Séries</label><input type="number" id="nbr-series" value="3" class="w-full p-2 bg-white rounded-btn text-center font-bold text-purple-700 border border-purple-200"></div>
+                        <div class="col-span-2"><label class="block text-[10px] font-bold text-gray-600">Récup. Totale inter-séries (ex: 1'00)</label><input type="text" id="t-recup-totale" value="1'00" class="w-full p-2 bg-white rounded-btn text-center font-bold text-purple-700 border border-purple-200"></div>
+                    </div>
+                `;
+            }
+        }
+        setMobile('motricite');
+
+        function validerConfig() {
+            const prenom = document.getElementById('eleve-prenom').value.trim();
+            if(!prenom) { alert("Entre ton prénom s'il te plaît !"); return; }
+
+            configEleve = {
+                p: prenom,
+                m: mobileActif,
+                min: parseInt(document.getElementById('fc-min').value),
+                max: parseInt(document.getElementById('fc-max').value),
+                tT: convertirTempsEnSecondes(document.getElementById('t-travail').value),
+                nS: parseInt(document.getElementById('nbr-series').value),
+                tRA: document.getElementById('t-recup-active') ? convertirTempsEnSecondes(document.getElementById('t-recup-active').value) : 15,
+                nR: document.getElementById('nbr-rep') ? parseInt(document.getElementById('nbr-rep').value) : 4,
+                tRT: convertirTempsEnSecondes(document.getElementById('t-recup-totale').value)
+            };
+
+            serieActuelle = 1;
+            pouvoirActuel = 'Aucun';
+            historiqueSeries = [];
+            activerAntiVeille();
+            lancerSequenceDecompteAvantTravail();
+        }
+
+        function setRessenti(val, btn) {
+            ressentiActuel = val;
+            document.querySelectorAll('.ressenti-btn, .ressenti-btn-final').forEach(b => {
+                if(b.textContent.includes(val)) {
+                    b.classList.add('ring-4', 'ring-purple-400');
+                } else {
+                    b.classList.remove('ring-4', 'ring-purple-400');
+                }
+            });
+        }
+
+        // --- DÉCOMPTE 5s AVANT TRAVAIL ---
+        function lancerSequenceDecompteAvantTravail() {
+            document.getElementById('step-config').classList.add('hidden');
+            document.getElementById('step-recup-totale').classList.add('hidden');
+            document.getElementById('step-bilan-final-direct').classList.add('hidden');
+            document.getElementById('step-chrono').classList.remove('hidden');
+
+            document.getElementById('info-serie').innerText = `SÉRIE ${serieActuelle} / ${configEleve.nS}`;
+            
+            let decompte = 5;
+            const cercle = document.getElementById('cercle-decompte');
+            document.getElementById('affichage-statut').innerText = "Prépare-toi !";
+            document.getElementById('info-details-chrono').innerText = pouvoirActuel !== 'Aucun' ? `⚡ Pouvoir actif : ${pouvoirActuel}` : '';
+            cercle.innerText = formatMss(decompte);
+            cercle.className = "w-48 h-48 mx-auto bg-amber-400 text-white rounded-full flex items-center justify-center text-5xl font-black shadow-inner animate-pulse";
+
+            let timerDecompte = setInterval(() => {
+                decompte--;
+                if(decompte > 0) {
+                    jouerSon(500, 100);
+                } else {
+                    jouerSon(880, 400);
+                }
+                cercle.innerText = formatMss(decompte);
+                if(decompte <= 0) {
+                    clearInterval(timerDecompte);
+                    if(configEleve.m === 'intensite') {
+                        lancerBoucleIntensite(1);
+                    } else {
+                        lancerChronoTravailSimple();
+                    }
+                }
+            }, 1000);
+        }
+
+        function lancerBoucleIntensite(repActuelle) {
+            if(repActuelle > configEleve.nR) {
+                verifierFinSerieOuRecup();
+                return;
+            }
+
+            let tempsRestant = configEleve.tT;
+            const cercle = document.getElementById('cercle-decompte');
+            document.getElementById('affichage-statut').innerText = `🔥 TRAVAIL (Rép ${repActuelle}/${configEleve.nR})`;
+            cercle.className = "w-48 h-48 mx-auto bg-red-500 text-white rounded-full flex items-center justify-center text-4xl font-black shadow-inner";
+            cercle.innerText = formatMss(tempsRestant);
+
+            let timerT = setInterval(() => {
+                tempsRestant--;
+                if (tempsRestant > 0 && tempsRestant <= 5) {
+                    jouerSon(500, 100);
+                }
+
+                if(tempsRestant <= 0) {
+                    clearInterval(timerT);
+                    jouerSon(880, 400);
+                    if(repActuelle < configEleve.nR) {
+                        lancerRecupActive(repActuelle);
+                    } else {
+                        verifierFinSerieOuRecup();
+                    }
+                } else {
+                    cercle.innerText = formatMss(tempsRestant);
+                }
+            }, 1000);
+        }
+
+        function lancerRecupActive(repActuelle) {
+            let tempsRecup = configEleve.tRA;
+            const cercle = document.getElementById('cercle-decompte');
+            document.getElementById('affichage-statut').innerText = "💤 RÉCUP. ACTIVE";
+            cercle.className = "w-48 h-48 mx-auto bg-blue-400 text-white rounded-full flex items-center justify-center text-4xl font-black shadow-inner";
+            cercle.innerText = formatMss(tempsRecup);
+
+            let timerRA = setInterval(() => {
+                tempsRecup--;
+                if (tempsRecup > 0 && tempsRecup <= 5) {
+                    jouerSon(500, 100);
+                }
+
+                if(tempsRecup <= 0) {
+                    clearInterval(timerRA);
+                    jouerSon(700, 200);
+                    lancerBoucleIntensite(repActuelle + 1);
+                } else {
+                    cercle.innerText = formatMss(tempsRecup);
+                }
+            }, 1000);
+        }
+
+        function lancerChronoTravailSimple() {
+            let tempsRestant = configEleve.tT;
+            const cercle = document.getElementById('cercle-decompte');
+            document.getElementById('affichage-statut').innerText = "🔥 AU TRAVAIL !";
+            cercle.className = "w-48 h-48 mx-auto bg-red-500 text-white rounded-full flex items-center justify-center text-4xl font-black shadow-inner";
+            cercle.innerText = formatMss(tempsRestant);
+
+            let timerTravail = setInterval(() => {
+                tempsRestant--;
+                if (tempsRestant > 0 && tempsRestant <= 5) {
+                    jouerSon(500, 100);
+                }
+
+                if(tempsRestant <= 0) {
+                    clearInterval(timerTravail);
+                    jouerSon(880, 500);
+                    verifierFinSerieOuRecup();
+                } else {
+                    cercle.innerText = formatMss(tempsRestant);
+                }
+            }, 1000);
+        }
+
+        function verifierFinSerieOuRecup() {
+            if(serieActuelle === configEleve.nS) {
+                lancerBilanFinalDirect();
+            } else {
+                lancerRecupTotaleGlobale();
+            }
+        }
+
+        // --- RÉCUPÉRATION TOTALE (Séries intermédiaires) ---
+        function lancerRecupTotaleGlobale() {
+            document.getElementById('step-chrono').classList.add('hidden');
+            document.getElementById('step-recup-totale').classList.remove('hidden');
+
+            document.getElementById('bloc-prise-pouls').classList.remove('hidden');
+            document.getElementById('bloc-saisie-bilan').classList.add('hidden');
+            document.getElementById('bloc-choix-pouvoir').classList.add('hidden');
+            document.getElementById('msg-attente-chrono').innerText = "⏳ En attente de la fin du chrono global...";
+
+            document.getElementById('fc-mesuree').value = '';
+            document.getElementById('input-sensations').value = '';
+            chronoRecupEpuise = false;
+
+            tempsRecupRestant = configEleve.tRT;
+            document.getElementById('chrono-recup-global').innerText = formatMss(tempsRecupRestant);
+
+            if(timerRecupGlobal) clearInterval(timerRecupGlobal);
+
+            timerRecupGlobal = setInterval(() => {
+                tempsRecupRestant--;
+                document.getElementById('chrono-recup-global').innerText = formatMss(tempsRecupRestant);
+
+                if(tempsRecupRestant <= 0) {
+                    clearInterval(timerRecupGlobal);
+                    jouerSon(880, 500);
+                    chronoRecupEpuise = true;
+                    document.getElementById('msg-attente-chrono').innerText = "⏳ Chrono terminé. Termine ton bilan et choisis ton pouvoir pour continuer !";
+                }
+            }, 1000);
+
+            lancerDecomptePoulsRecup('cercle-pouls', 'titre-pouls-statut', () => {
+                document.getElementById('bloc-prise-pouls').classList.add('hidden');
+                document.getElementById('bloc-saisie-bilan').classList.remove('hidden');
+            });
+        }
+
+        function lancerDecomptePoulsRecup(elemCercleId, elemTitreId, callbackFin) {
+            let decompte10 = 10;
+            const cerclePouls = document.getElementById(elemCercleId);
+            document.getElementById(elemTitreId).innerText = "❤️ Prépare ta fréquence cardiaque";
+            cerclePouls.innerText = formatMss(decompte10);
+
+            let timerD10 = setInterval(() => {
+                decompte10--;
+                if (decompte10 > 0 && decompte10 <= 3) {
+                    jouerSon(400, 100);
+                } else if (decompte10 <= 0) {
+                    jouerSon(600, 200);
+                }
+
+                cerclePouls.innerText = formatMss(decompte10);
+                if(decompte10 <= 0) {
+                    clearInterval(timerD10);
+                    lancerChrono15sPoulsRecup(elemCercleId, elemTitreId, callbackFin);
+                }
+            }, 1000);
+        }
+
+        function lancerChrono15sPoulsRecup(elemCercleId, elemTitreId, callbackFin) {
+            let chrono15 = 15;
+            const cerclePouls = document.getElementById(elemCercleId);
+            document.getElementById(elemTitreId).innerText = "❤️ COMPTE TES PULSATIONS !";
+            cerclePouls.innerText = formatMss(chrono15);
+
+            let timer15 = setInterval(() => {
+                chrono15--;
+                cerclePouls.innerText = formatMss(chrono15);
+                if(chrono15 <= 0) {
+                    clearInterval(timer15);
+                    jouerSon(700, 300);
+                    if(callbackFin) callbackFin();
+                }
+            }, 1000);
+        }
+
+        function evaluerStatutFC(fcBpm, min, max) {
+            if (fcBpm >= min && fcBpm <= max) {
+                return { statut: 'Dans la zone cible', classeBg: 'bg-emerald-100 text-emerald-900 border-emerald-300', emoji: '🟢' };
+            } else if ((fcBpm >= min - 5 && fcBpm < min) || (fcBpm > max && fcBpm <= max + 5)) {
+                return { statut: 'Proche de la cible (à 5 bpm)', classeBg: 'bg-amber-100 text-amber-900 border-amber-300', emoji: '🟡' };
+            } else {
+                return { statut: 'Hors de la zone cible', classeBg: 'bg-rose-100 text-rose-900 border-rose-300', emoji: '🔴' };
+            }
+        }
+
+        function validerBilanRecup() {
+            const fcPulsations = parseInt(document.getElementById('fc-mesuree').value);
+            if(isNaN(fcPulsations)) { alert("Entre ton nombre de pulsations s'il te plaît !"); return; }
+            
+            const fcBpm = fcPulsations * 4; 
+            const evaluationFC = evaluerStatutFC(fcBpm, configEleve.min, configEleve.max);
+
+            let donneesSerie = {
+                s: serieActuelle,
+                p15: fcPulsations,
+                fc: fcBpm,
+                st: evaluationFC.statut,
+                em: evaluationFC.emoji,
+                r: ressentiActuel,
+                se: document.getElementById('input-sensations').value,
+                pow: pouvoirActuel
+            };
+
+            historiqueSeries.push(donneesSerie);
+
+            document.getElementById('bloc-saisie-bilan').classList.add('hidden');
+            document.getElementById('bloc-choix-pouvoir').classList.remove('hidden');
+        }
+
+        function choisirPouvoirRecup(pouvoir, btn) {
+            pouvoirActuel = pouvoir;
+            document.querySelectorAll('.pouvoir-recup-btn').forEach(b => b.classList.remove('ring-4', 'ring-purple-400', 'bg-purple-100'));
+            btn.classList.add('ring-4', 'ring-purple-400', 'bg-purple-100');
+            jouerSon(750, 100);
+
+            if (chronoRecupEpuise) {
+                serieActuelle++;
+                lancerSequenceDecompteAvantTravail();
+            } else {
+                document.getElementById('msg-attente-chrono').innerText = "⏳ Pouvoir enregistré ! En attente de la fin du chrono global...";
+            }
+        }
+
+        // --- BILAN FINAL DIRECT (Dernière série) ---
+        function lancerBilanFinalDirect() {
+            document.getElementById('step-chrono').classList.add('hidden');
+            document.getElementById('step-bilan-final-direct').classList.remove('hidden');
+
+            document.getElementById('bloc-prise-pouls-final').classList.remove('hidden');
+            document.getElementById('bloc-saisie-bilan-final').classList.add('hidden');
+            document.getElementById('fc-mesuree-final').value = '';
+            document.getElementById('input-sensations-final').value = '';
+            document.getElementById('bilan-general').value = '';
+            document.getElementById('modifications-seance').value = '';
+
+            lancerDecomptePoulsRecup('cercle-pouls-final', 'titre-pouls-statut-final', () => {
+                document.getElementById('bloc-prise-pouls-final').classList.add('hidden');
+                document.getElementById('bloc-saisie-bilan-final').classList.remove('hidden');
+            });
+        }
+
+        function validerBilanFinalDirect() {
+            const fcPulsations = parseInt(document.getElementById('fc-mesuree-final').value);
+            if(isNaN(fcPulsations)) { alert("Entre ton nombre de pulsations s'il te plaît !"); return; }
+            
+            const fcBpm = fcPulsations * 4; 
+            const evaluationFC = evaluerStatutFC(fcBpm, configEleve.min, configEleve.max);
+
+            let donneesSerie = {
+                s: serieActuelle,
+                p15: fcPulsations,
+                fc: fcBpm,
+                st: evaluationFC.statut,
+                em: evaluationFC.emoji,
+                r: ressentiActuel,
+                se: document.getElementById('input-sensations-final').value,
+                pow: pouvoirActuel,
+                bg: document.getElementById('bilan-general').value,
+                mod: document.getElementById('modifications-seance').value
+            };
+
+            historiqueSeries.push(donneesSerie);
+            afficherBilanFinalFinal();
+        }
+
+        // --- BILAN FINAL & QR CODE / PDF ---
+        function afficherBilanFinalFinal() {
+            document.getElementById('step-chrono').classList.add('hidden');
+            document.getElementById('step-recup-totale').classList.add('hidden');
+            document.getElementById('step-bilan-final-direct').classList.add('hidden');
+            document.getElementById('step-final').classList.remove('hidden');
+
+            const bilanGlobal = {
+                cfg: configEleve,
+                ser: historiqueSeries
+            };
+
+            let htmlBilan = `
+                <div style="font-size: 13px; font-weight: bold; color: #4c1d95; border-bottom: 2px solid #ddd6fe; padding-bottom: 4px; margin-bottom: 8px;">
+                    👤 ${configEleve.p} — Mobile : <span style="text-transform: uppercase;">${configEleve.m}</span>
+                </div>
+                <div style="font-size: 11px; color: #4b5563; margin-bottom: 8px;">
+                    🎯 Cible FC : <b>${configEleve.min} - ${configEleve.max} bpm</b>
+                </div>
+            `;
+
+            historiqueSeries.forEach(s => {
+                let bgStyle = "background-color: #ecfdf5; color: #065f46; border: 1px solid #10b981;";
+                if(s.st.includes('Proche')) {
+                    bgStyle = "background-color: #fffbeb; color: #92400e; border: 1px solid #f59e0b;";
+                } else if(s.st.includes('Hors')) {
+                    bgStyle = "background-color: #fff1f2; color: #9f1239; border: 1px solid #e11d48;";
+                }
+
+                htmlBilan += `
+                    <div style="${bgStyle} padding: 8px; border-radius: 8px; margin-bottom: 6px; font-size: 11px;">
+                        <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 2px;">
+                            <span>Série ${s.s}</span>
+                            <span>${s.em} ${s.fc} bpm</span>
+                        </div>
+                        <div>Statut : <b>${s.st}</b></div>
+                        <div>Ressenti : <b>${s.r}</b> | Pouvoir : <b>${s.pow}</b></div>
+                        ${s.se ? `<div style="font-style: italic; margin-top: 2px;">Sensations : "${s.se}"</div>` : ''}
+                        ${s.bg ? `<div style="border-top: 1px dashed rgba(0,0,0,0.15); margin-top: 4px; padding-top: 2px;"><b>Bilan :</b> ${s.bg}</div>` : ''}
+                        ${s.mod ? `<div><b>Modifications :</b> ${s.mod}</div>` : ''}
+                    </div>
+                `;
+            });
+
+            document.getElementById('pdf-export-content').innerHTML = htmlBilan;
+
+            // Génération de l'image du QR Code via l'API publique fiable de QR Server
+            const qrData = encodeURIComponent(JSON.stringify(bilanGlobal));
+            const qrContainer = document.getElementById("qrcode");
+            qrContainer.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${qrData}" alt="QR Code Bilan" class="mx-auto rounded-lg shadow-md">`;
+        }
+
+        function telechargerPDF() {
+            const element = document.getElementById('pdf-export-content');
+            const opt = {
+                margin:       10,
+                filename:     `Bilan_STEP_${configEleve.p}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().from(element).set(opt).save();
+        }
+
+        function recommencer() {
+            if(wakeLock !== null) wakeLock.release().then(() => { wakeLock = null; });
+            if(timerRecupGlobal) clearInterval(timerRecupGlobal);
+            document.getElementById('step-final').classList.add('hidden');
+            document.getElementById('step-config').classList.remove('hidden');
+        }
+
+        // --- MODE ENSEIGNANT ---
+        function basculerModeEnseignant() {
+            if(timerRecupGlobal) clearInterval(timerRecupGlobal);
+            document.getElementById('step-config').classList.add('hidden');
+            document.getElementById('step-chrono').classList.add('hidden');
+            document.getElementById('step-recup-totale').classList.add('hidden');
+            document.getElementById('step-bilan-final-direct').classList.add('hidden');
+            document.getElementById('step-final').classList.add('hidden');
+            document.getElementById('step-enseignant').classList.remove('hidden');
+
+            if(!html5QrCodeScanner) {
+                html5QrCodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+                html5QrCodeScanner.render(onScanSuccess, onScanError);
+            }
+        }
+
+        function fermerModeEnseignant() {
+            if(html5QrCodeScanner) {
+                html5QrCodeScanner.clear().catch(error => { console.error("Erreur clear", error); });
+                html5QrCodeScanner = null;
+            }
+            document.getElementById('step-enseignant').classList.add('hidden');
+            document.getElementById('step-config').classList.remove('hidden');
+        }
+
+        function onScanSuccess(decodedText, decodedResult) {
+            try {
+                const data = JSON.parse(decodedText);
+                document.getElementById('resultat-flash').classList.remove('hidden');
+                document.getElementById('flash-titre').innerText = `Élève : ${data.cfg.p} (${data.cfg.m.toUpperCase()})`;
+                
+                let htmlContent = `<b>Cible FC :</b> ${data.cfg.min}-${data.cfg.max} bpm<br>`;
+                data.ser.forEach(s => {
+                    htmlContent += `<div class="mt-1 border-t border-purple-100 pt-1"><strong>Série ${s.s} :</strong> Pulsations: ${s.p15} (soit <b>${s.fc} bpm</b>) -> ${s.em} ${s.st}<br>Ressenti: ${s.r} | Pouvoir: ${s.pow}<br><em>Sensations:</em> ${s.se || 'Aucune'}`;
+                    if(s.bg) htmlContent += `<br><strong>Bilan :</strong> ${s.bg}`;
+                    if(s.mod) htmlContent += `<br><strong>Modifs :</strong> ${s.mod}`;
+                    htmlContent += `</div>`;
+                });
+                document.getElementById('flash-contenu').innerHTML = htmlContent;
+                jouerSon(800, 150);
+            } catch(e) {
+                alert("QR code invalide ou non reconnu par cette application.");
+            }
+        }
+
+        function onScanError(errorMessage) {}
+    </script>
+</body>
+</html>
